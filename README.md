@@ -173,8 +173,8 @@ python src/predict.py TCS
 
 ## Author
 
-**Muntaha** — Engineering Student  
-Built as part of a structured ML engineering learning roadmap.
+**Muntazir Mehdi** — Computer Applications Student, University of Delhi.
+Building real-world ML projects from scratch.
 
 ---
 
