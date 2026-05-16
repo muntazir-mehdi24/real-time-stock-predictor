@@ -1,0 +1,10 @@
+data/raw_data/*
+data/preprocessed_data/*
+models/*
+!data/raw_data/.gitkeep
+!data/preprocessed_data/.gitkeep
+!models/.gitkeep
+__pycache__/
+.conda/
+*.pkl
+.vscode/
