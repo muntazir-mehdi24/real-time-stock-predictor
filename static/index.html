@@ -1,364 +1,541 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Stock Predictor</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg: #0a0a0f;
-      --surface: #12121a;
-      --border: #1e1e2e;
-      --accent: #00e5a0;
-      --accent-dim: rgba(0,229,160,0.12);
-      --red: #ff4d6d;
-      --red-dim: rgba(255,77,109,0.12);
-      --text: #e8e8f0;
-      --muted: #6b6b80;
-      --mono: 'DM Mono', monospace;
-      --sans: 'Syne', sans-serif;
-    }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--sans);
-      min-height: 100vh;
-      padding: 2rem;
-    }
-
-    /* Background grid */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(var(--border) 1px, transparent 1px),
-        linear-gradient(90deg, var(--border) 1px, transparent 1px);
-      background-size: 40px 40px;
-      opacity: 0.4;
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    .wrap { position: relative; z-index: 1; max-width: 1000px; margin: 0 auto; }
-
-    /* Header */
-    header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 2.5rem; }
-    header h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.03em; }
-    header span { font-family: var(--mono); font-size: 0.75rem; color: var(--accent); background: var(--accent-dim); padding: 3px 10px; border-radius: 100px; }
-
-    /* Search bar */
-    .search-row { display: flex; gap: 0.75rem; margin-bottom: 2rem; }
-    .search-row input {
-      flex: 1;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 0.85rem 1.2rem;
-      color: var(--text);
-      font-family: var(--mono);
-      font-size: 1rem;
-      letter-spacing: 0.05em;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    .search-row input:focus { border-color: var(--accent); }
-    .search-row input::placeholder { color: var(--muted); }
-    .search-row button {
-      background: var(--accent);
-      color: #000;
-      border: none;
-      border-radius: 10px;
-      padding: 0.85rem 1.8rem;
-      font-family: var(--sans);
-      font-weight: 600;
-      font-size: 0.95rem;
-      cursor: pointer;
-      transition: opacity 0.2s, transform 0.1s;
-    }
-    .search-row button:hover { opacity: 0.85; }
-    .search-row button:active { transform: scale(0.97); }
-    .search-row button:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    /* Status message */
-    #status {
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-bottom: 1.5rem;
-      min-height: 1.2em;
-      transition: color 0.3s;
-    }
-    #status.error { color: var(--red); }
-    #status.success { color: var(--accent); }
-
-    /* Cards row */
-    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1.2rem 1.4rem;
-      transition: border-color 0.3s;
-    }
-    .card-label { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem; }
-    .card-value { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; }
-    .card-value.green { color: var(--accent); }
-    .card-value.red { color: var(--red); }
-    .card-sub { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); margin-top: 0.3rem; }
-
-    /* Prediction card */
-    .pred-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1.4rem;
-      margin-bottom: 1.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-    }
-    .pred-label { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.4rem; }
-    .pred-value { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.03em; }
-    .pred-badge {
-      font-family: var(--mono);
-      font-size: 0.85rem;
-      font-weight: 500;
-      padding: 0.4rem 1rem;
-      border-radius: 100px;
-    }
-    .pred-badge.up { background: var(--accent-dim); color: var(--accent); }
-    .pred-badge.down { background: var(--red-dim); color: var(--red); }
-
-    /* Chart */
-    .chart-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1.4rem;
-    }
-    .chart-title { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1.2rem; }
-    .chart-wrap { position: relative; height: 260px; }
-
-    /* Skeleton / placeholder */
-    .skeleton { background: linear-gradient(90deg, var(--border) 25%, #1a1a28 50%, var(--border) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; }
-    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-
-    /* Loading spinner inside button */
-    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #000; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* Hidden */
-    .hidden { display: none; }
-
-    /* Fade in */
-    .fade-in { animation: fadeIn 0.4s ease; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-  </style>
-</head>
-<body>
-<div class="wrap">
-
-  <header>
-    <h1>NSE Stock Predictor</h1>
-    <span>LSTM · Live</span>
-  </header>
-
-  <div class="search-row">
-    <input id="symbolInput" type="text" placeholder="Enter NSE symbol — TCS, RELIANCE, INFY..." maxlength="20" />
-    <button id="predictBtn" onclick="runPrediction()">Predict</button>
-  </div>
-
-  <div id="status">Enter a stock symbol and click Predict.</div>
-
-  <!-- Results — hidden until prediction runs -->
-  <div id="results" class="hidden">
-
-    <div class="cards fade-in">
-      <div class="card">
-        <div class="card-label">Symbol</div>
-        <div class="card-value" id="cardSymbol">—</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Last Close</div>
-        <div class="card-value" id="cardLastClose">—</div>
-        <div class="card-sub">most recent trading day</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Change</div>
-        <div class="card-value" id="cardChange">—</div>
-        <div class="card-sub" id="cardChangeSub">predicted vs last close</div>
-      </div>
-    </div>
-
-    <div class="pred-card fade-in">
-      <div>
-        <div class="pred-label">Predicted Closing Price — Tomorrow</div>
-        <div class="pred-value" id="predValue">—</div>
-      </div>
-      <div class="pred-badge" id="predBadge">—</div>
-    </div>
-
-    <div class="chart-card fade-in">
-      <div class="chart-title">60-day closing price history</div>
-      <div class="chart-wrap">
-        <canvas id="priceChart"></canvas>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<script>
-  let chartInstance = null;
-
-  // Allow Enter key to trigger prediction
-  document.getElementById('symbolInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') runPrediction();
-  });
-
-  async function runPrediction() {
-    const symbol = document.getElementById('symbolInput').value.trim().toUpperCase();
-    if (!symbol) return;
-
-    const btn = document.getElementById('predictBtn');
-    const status = document.getElementById('status');
-    const results = document.getElementById('results');
-
-    // Set loading state
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>Predicting...';
-    status.className = '';
-    status.textContent = symbol.length > 0
-      ? `Fetching prediction for ${symbol}... (first-time training may take ~60s)`
-      : '';
-    results.classList.add('hidden');
-
-    try {
-      // Call your FastAPI endpoint
-      const res = await fetch(`/predict?symbol=${symbol}`);
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail || 'Prediction failed');
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stock Predictor</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;800&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       }
 
-      // Parse predicted price — strip "INR " prefix
-      const predicted = parseFloat(data.predicted_price.replace('INR ', ''));
+      :root {
+        --bg: #0a0a0f;
+        --surface: #12121a;
+        --border: #1e1e2e;
+        --accent: #00e5a0;
+        --accent-dim: rgba(0, 229, 160, 0.12);
+        --red: #ff4d6d;
+        --red-dim: rgba(255, 77, 109, 0.12);
+        --text: #e8e8f0;
+        --muted: #6b6b80;
+        --mono: "DM Mono", monospace;
+        --sans: "Syne", sans-serif;
+      }
 
-      // Fetch historical data to show chart and last close
-      const histRes = await fetch(`/history?symbol=${symbol}`);
-      const histData = await histRes.json();
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        min-height: 100vh;
+        padding: 2rem;
+      }
 
-      if (!histRes.ok) throw new Error(histData.detail || 'History fetch failed');
+      /* Background grid */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(var(--border) 1px, transparent 1px),
+          linear-gradient(90deg, var(--border) 1px, transparent 1px);
+        background-size: 40px 40px;
+        opacity: 0.4;
+        pointer-events: none;
+        z-index: 0;
+      }
 
-      const closes = histData.closes;        // array of close prices
-      const dates = histData.dates;          // array of date strings
-      const lastClose = closes[closes.length - 1];
-      const change = predicted - lastClose;
-      const changePct = ((change / lastClose) * 100).toFixed(2);
-      const isUp = change >= 0;
+      .wrap {
+        position: relative;
+        z-index: 1;
+        max-width: 1000px;
+        margin: 0 auto;
+      }
 
-      // Update cards
-      document.getElementById('cardSymbol').textContent = symbol;
-      document.getElementById('cardLastClose').textContent = `₹${lastClose.toFixed(2)}`;
+      /* Header */
+      header {
+        display: flex;
+        align-items: baseline;
+        gap: 1rem;
+        margin-bottom: 2.5rem;
+      }
+      header h1 {
+        font-size: 1.6rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+      header span {
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        color: var(--accent);
+        background: var(--accent-dim);
+        padding: 3px 10px;
+        border-radius: 100px;
+      }
 
-      const changeEl = document.getElementById('cardChange');
-      changeEl.textContent = `${isUp ? '+' : ''}${changePct}%`;
-      changeEl.className = `card-value ${isUp ? 'green' : 'red'}`;
+      /* Search bar */
+      .search-row {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 2rem;
+      }
+      .search-row input {
+        flex: 1;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0.85rem 1.2rem;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 1rem;
+        letter-spacing: 0.05em;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      .search-row input:focus {
+        border-color: var(--accent);
+      }
+      .search-row input::placeholder {
+        color: var(--muted);
+      }
+      .search-row button {
+        background: var(--accent);
+        color: #000;
+        border: none;
+        border-radius: 10px;
+        padding: 0.85rem 1.8rem;
+        font-family: var(--sans);
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition:
+          opacity 0.2s,
+          transform 0.1s;
+      }
+      .search-row button:hover {
+        opacity: 0.85;
+      }
+      .search-row button:active {
+        transform: scale(0.97);
+      }
+      .search-row button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
 
-      // Update prediction
-      document.getElementById('predValue').textContent = `₹${predicted.toFixed(2)}`;
-      const badge = document.getElementById('predBadge');
-      badge.textContent = isUp ? `▲ UP  +₹${change.toFixed(2)}` : `▼ DOWN  ₹${change.toFixed(2)}`;
-      badge.className = `pred-badge ${isUp ? 'up' : 'down'}`;
+      /* Status message */
+      #status {
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-bottom: 1.5rem;
+        min-height: 1.2em;
+        transition: color 0.3s;
+      }
+      #status.error {
+        color: var(--red);
+      }
+      #status.success {
+        color: var(--accent);
+      }
 
-      // Draw chart
-      drawChart(dates, closes, predicted);
+      /* Cards row */
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 1.2rem 1.4rem;
+        transition: border-color 0.3s;
+      }
+      .card-label {
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 0.5rem;
+      }
+      .card-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+      .card-value.green {
+        color: var(--accent);
+      }
+      .card-value.red {
+        color: var(--red);
+      }
+      .card-sub {
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin-top: 0.3rem;
+      }
 
-      // Show results
-      results.classList.remove('hidden');
-      status.className = 'success';
-      status.textContent = `Prediction ready for ${symbol}.`;
+      /* Prediction card */
+      .pred-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 1.4rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+      .pred-label {
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 0.4rem;
+      }
+      .pred-value {
+        font-size: 2.2rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+      .pred-badge {
+        font-family: var(--mono);
+        font-size: 0.85rem;
+        font-weight: 500;
+        padding: 0.4rem 1rem;
+        border-radius: 100px;
+      }
+      .pred-badge.up {
+        background: var(--accent-dim);
+        color: var(--accent);
+      }
+      .pred-badge.down {
+        background: var(--red-dim);
+        color: var(--red);
+      }
 
-    } catch (err) {
-      status.className = 'error';
-      status.textContent = `Error: ${err.message}`;
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = 'Predict';
-    }
-  }
+      /* Chart */
+      .chart-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 1.4rem;
+      }
+      .chart-title {
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 1.2rem;
+      }
+      .chart-wrap {
+        position: relative;
+        height: 260px;
+      }
 
-  function drawChart(dates, closes, predicted) {
-    if (chartInstance) chartInstance.destroy();
-
-    const ctx = document.getElementById('priceChart').getContext('2d');
-
-    // Add predicted point
-    const allDates = [...dates, 'Tomorrow'];
-    const allCloses = [...closes, predicted];
-
-    // Color last point differently
-    const pointColors = allCloses.map((_, i) =>
-      i === allCloses.length - 1 ? '#00e5a0' : 'transparent'
-    );
-    const pointRadius = allCloses.map((_, i) =>
-      i === allCloses.length - 1 ? 6 : 0
-    );
-
-    chartInstance = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: allDates,
-        datasets: [{
-          data: allCloses,
-          borderColor: '#00e5a0',
-          borderWidth: 2,
-          pointBackgroundColor: pointColors,
-          pointRadius: pointRadius,
-          tension: 0.3,
-          fill: true,
-          backgroundColor: (ctx) => {
-            const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 260);
-            gradient.addColorStop(0, 'rgba(0,229,160,0.15)');
-            gradient.addColorStop(1, 'rgba(0,229,160,0)');
-            return gradient;
-          }
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: {
-            ticks: {
-              color: '#6b6b80',
-              font: { family: 'DM Mono', size: 10 },
-              maxTicksLimit: 8,
-              maxRotation: 0
-            },
-            grid: { color: '#1e1e2e' }
-          },
-          y: {
-            ticks: {
-              color: '#6b6b80',
-              font: { family: 'DM Mono', size: 10 },
-              callback: v => `₹${v.toFixed(0)}`
-            },
-            grid: { color: '#1e1e2e' }
-          }
+      /* Skeleton / placeholder */
+      .skeleton {
+        background: linear-gradient(
+          90deg,
+          var(--border) 25%,
+          #1a1a28 50%,
+          var(--border) 75%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+        border-radius: 6px;
+      }
+      @keyframes shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
         }
       }
-    });
-  }
-</script>
-</body>
+
+      /* Loading spinner inside button */
+      .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid #000;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        vertical-align: middle;
+        margin-right: 6px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Hidden */
+      .hidden {
+        display: none;
+      }
+
+      /* Fade in */
+      .fade-in {
+        animation: fadeIn 0.4s ease;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>NSE Stock Predictor</h1>
+        <span>LSTM · Live</span>
+      </header>
+
+      <div class="search-row">
+        <input
+          id="symbolInput"
+          type="text"
+          placeholder="Enter NSE symbol — TCS, RELIANCE, INFY..."
+          maxlength="20"
+        />
+        <button id="predictBtn" onclick="runPrediction()">Predict</button>
+      </div>
+
+      <div id="status">Enter a stock symbol and click Predict.</div>
+
+      <!-- Results — hidden until prediction runs -->
+      <div id="results" class="hidden">
+        <div class="cards fade-in">
+          <div class="card">
+            <div class="card-label">Symbol</div>
+            <div class="card-value" id="cardSymbol">—</div>
+          </div>
+          <div class="card">
+            <div class="card-label">Last Close</div>
+            <div class="card-value" id="cardLastClose">—</div>
+            <div class="card-sub">most recent trading day</div>
+          </div>
+          <div class="card">
+            <div class="card-label">Change</div>
+            <div class="card-value" id="cardChange">—</div>
+            <div class="card-sub" id="cardChangeSub">
+              predicted vs last close
+            </div>
+          </div>
+        </div>
+
+        <div class="pred-card fade-in">
+          <div>
+            <div class="pred-label">Predicted Closing Price — Tomorrow</div>
+            <div class="pred-value" id="predValue">—</div>
+          </div>
+          <div class="pred-badge" id="predBadge">—</div>
+        </div>
+
+        <div class="chart-card fade-in">
+          <div class="chart-title">60-day closing price history</div>
+          <div class="chart-wrap">
+            <canvas id="priceChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let chartInstance = null;
+
+      // Allow Enter key to trigger prediction
+      document
+        .getElementById("symbolInput")
+        .addEventListener("keydown", (e) => {
+          if (e.key === "Enter") runPrediction();
+        });
+
+      async function runPrediction() {
+        const symbol = document
+          .getElementById("symbolInput")
+          .value.trim()
+          .toUpperCase();
+        if (!symbol) return;
+
+        const btn = document.getElementById("predictBtn");
+        const status = document.getElementById("status");
+        const results = document.getElementById("results");
+
+        // Set loading state
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>Predicting...';
+        status.className = "";
+        status.textContent =
+          symbol.length > 0
+            ? `Fetching prediction for ${symbol}... (first-time training may take ~60s)`
+            : "";
+        results.classList.add("hidden");
+
+        // Reassure user if taking long
+        const reassureTimer = setTimeout(() => {
+          status.textContent = `${symbol} — fetching data and training model, please wait (~60s for new stocks)...`;
+        }, 5000);
+
+
+        try {
+          // Call your FastAPI endpoint
+          const res = await fetch(`/predict?symbol=${symbol}`);
+          const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.detail || "Prediction failed");
+          }
+
+          // Parse predicted price — strip "INR " prefix
+          const predicted = parseFloat(
+            data.predicted_price.replace("INR ", ""),
+          );
+
+          // Fetch historical data to show chart and last close
+          const histRes = await fetch(`/history?symbol=${symbol}`);
+          const histData = await histRes.json();
+
+          if (!histRes.ok)
+            throw new Error(histData.detail || "History fetch failed");
+
+          const closes = histData.closes; // array of close prices
+          const dates = histData.dates; // array of date strings
+          const lastClose = closes[closes.length - 1];
+          const change = predicted - lastClose;
+          const changePct = ((change / lastClose) * 100).toFixed(2);
+          const isUp = change >= 0;
+
+          // Update cards
+          document.getElementById("cardSymbol").textContent = symbol;
+          document.getElementById("cardLastClose").textContent =
+            `₹${lastClose.toFixed(2)}`;
+
+          const changeEl = document.getElementById("cardChange");
+          changeEl.textContent = `${isUp ? "+" : ""}${changePct}%`;
+          changeEl.className = `card-value ${isUp ? "green" : "red"}`;
+
+          // Update prediction
+          document.getElementById("predValue").textContent =
+            `₹${predicted.toFixed(2)}`;
+          const badge = document.getElementById("predBadge");
+          badge.textContent = isUp
+            ? `▲ UP  +₹${change.toFixed(2)}`
+            : `▼ DOWN  ₹${change.toFixed(2)}`;
+          badge.className = `pred-badge ${isUp ? "up" : "down"}`;
+
+          // Draw chart
+          drawChart(dates, closes, predicted);
+
+          // Show results
+          results.classList.remove("hidden");
+          status.className = "success";
+          status.textContent = `Prediction ready for ${symbol}.`;
+        } catch (err) {
+          status.className = "error";
+          status.textContent = `Error: ${err.message}`;
+        } finally {
+          clearTimeout(reassureTimer);
+          btn.disabled = false;
+          btn.innerHTML = "Predict";
+        }
+      }
+
+      function drawChart(dates, closes, predicted) {
+        if (chartInstance) chartInstance.destroy();
+
+        const ctx = document.getElementById("priceChart").getContext("2d");
+
+        // Add predicted point
+        const allDates = [...dates, "Tomorrow"];
+        const allCloses = [...closes, predicted];
+
+        // Color last point differently
+        const pointColors = allCloses.map((_, i) =>
+          i === allCloses.length - 1 ? "#00e5a0" : "transparent",
+        );
+        const pointRadius = allCloses.map((_, i) =>
+          i === allCloses.length - 1 ? 6 : 0,
+        );
+
+        chartInstance = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: allDates,
+            datasets: [
+              {
+                data: allCloses,
+                borderColor: "#00e5a0",
+                borderWidth: 2,
+                pointBackgroundColor: pointColors,
+                pointRadius: pointRadius,
+                tension: 0.3,
+                fill: true,
+                backgroundColor: (ctx) => {
+                  const gradient = ctx.chart.ctx.createLinearGradient(
+                    0,
+                    0,
+                    0,
+                    260,
+                  );
+                  gradient.addColorStop(0, "rgba(0,229,160,0.15)");
+                  gradient.addColorStop(1, "rgba(0,229,160,0)");
+                  return gradient;
+                },
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: {
+                ticks: {
+                  color: "#6b6b80",
+                  font: { family: "DM Mono", size: 10 },
+                  maxTicksLimit: 8,
+                  maxRotation: 0,
+                },
+                grid: { color: "#1e1e2e" },
+              },
+              y: {
+                ticks: {
+                  color: "#6b6b80",
+                  font: { family: "DM Mono", size: 10 },
+                  callback: (v) => `₹${v.toFixed(0)}`,
+                },
+                grid: { color: "#1e1e2e" },
+              },
+            },
+          },
+        });
+      }
+    </script>
+  </body>
 </html>
