@@ -30,6 +30,11 @@ async def root():
 
 @app.get("/predict")
 async def predict_stock(symbol: str):
+
+    # check if symbol is valid string (e.g., non-empty, non-numeric using isalpha())
+    if not symbol or not symbol.isalpha():
+        raise HTTPException(status_code=400, detail="Invalid stock symbol")
+
     # Run the pipeline steps to make sure we have fresh data and a model.
     subprocess.run([sys.executable, "src/fetch_data.py", symbol], check=True)
     subprocess.run([sys.executable, "src/preprocess.py", symbol], check=True)
@@ -59,6 +64,9 @@ async def predict_stock(symbol: str):
     
 @app.get("/history")
 async def get_history(symbol: str):
+    # check if symbol is valid string (e.g., non-empty, non-numeric using isalpha())
+    if not symbol or not symbol.isalpha():
+        raise HTTPException(status_code=400, detail="Invalid stock symbol")
     # Build a response of the last 60 real closing prices for charting.
     scaler = joblib.load(f"data/preprocessed_data/{symbol}_scaler.pkl")
     df = pd.read_csv(f"data/preprocessed_data/{symbol}_preprocessed.csv", index_col='Date')
